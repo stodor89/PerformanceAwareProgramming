@@ -24,17 +24,18 @@ string processBinaryFile(const std::string& fileName) {
 
     string result;
     int byteNumber = 1;
-    MovInstruction inst = { 0 };
+    ParsedInstruction inst = { 0 };
     for (size_t i = 0; i < bytes.size(); i++) {
         switch (byteNumber) {
         case 0:
         {
-            result += instructionToString(inst) + "\n";
+            const string strInst = instructionToString(inst);
+            result += strInst + "\n";
             inst = { 0 };
             byteNumber = 1;
             [[fallthrough]];
         }
-        case 1: 
+        case 1:
         {
             parseByte1(bytes[i], inst);
             break;
@@ -52,6 +53,16 @@ string processBinaryFile(const std::string& fileName) {
         case 4:
         {
             parseByte4(bytes[i], inst);
+            break;
+        }
+        case 5:
+        {
+            parseByte5(bytes[i], inst);
+            break;
+        }
+        case 6:
+        {
+            parseByte6(bytes[i], inst);
             break;
         }
         }

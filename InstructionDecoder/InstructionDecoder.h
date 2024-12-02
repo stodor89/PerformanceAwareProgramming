@@ -35,18 +35,21 @@ constexpr uint8_t RM_REGISTER_BX = 0b111;
 constexpr uint8_t OPCODE_MOV_RM_TO_RM = 0b10001000;
 constexpr uint8_t OPCODE_MOV_IMM_TO_RM = 0b11000110;
 constexpr uint8_t OPCODE_MOV_IMM_TO_REG = 0b10110000;
+constexpr uint8_t OPCODE_MOV_MEM_TO_ACC = 0b10100000;
+constexpr uint8_t OPCODE_MOV_ACC_TO_MEM = 0b10100010;
 
-// Move modes
-constexpr uint8_t MOV_MOD_DISPLACEMENT_NONE = 0b00;
-constexpr uint8_t MOV_MOD_DISPLACEMENT_8BIT = 0b01;
-constexpr uint8_t MOV_MOD_DISPLACEMENT_16BIT = 0b10;
-constexpr uint8_t MOV_MOD_REGISTER = 0b11;
+// Modes
+constexpr uint8_t OPPARAM_MOD_DISPLACEMENT_NONE = 0b00;
+constexpr uint8_t OPPARAM_MOD_DISPLACEMENT_8BIT = 0b01;
+constexpr uint8_t OPPARAM_MOD_DISPLACEMENT_16BIT = 0b10;
+constexpr uint8_t OPPARAM_MOD_REGISTER = 0b11;
 
 // Sizes
 constexpr uint8_t MOV_IMM_TO_REG_BASE_SIZE = 1;
+constexpr uint8_t MOV_IMM_TO_RM_BASE_SIZE = 2;
 constexpr uint8_t MOV_RM_TO_RM_BASE_SIZE = 2;
-constexpr uint8_t DISP8_BASE_SIZE = 1;
-constexpr uint8_t DISP16_BASE_SIZE = 2;
+constexpr uint8_t DATA8_BASE_SIZE = 1;
+constexpr uint8_t DATA16_BASE_SIZE = 2;
 constexpr uint8_t SHIFT_1BYTE = 8;
 
 // Operation parameters locations
@@ -68,7 +71,7 @@ constexpr uint8_t OPPARAM_BYTE2_MOD = 0b11000000;
 constexpr uint8_t OPPARAM_BYTE2_REG = 0b111000;
 constexpr uint8_t OPPARAM_BYTE2_RM = 0b111;
 
-struct MovInstruction {
+struct ParsedInstruction {
     // Regular
     uint8_t opCode;
     uint8_t regIsDestination;
@@ -88,22 +91,28 @@ struct MovInstruction {
 };
 
 // Main parsing functions
-void parseByte1(uint8_t byte1, MovInstruction& inst);
-void parseByte2(uint8_t byte2, MovInstruction& inst);
-void parseByte3(uint8_t byte3, MovInstruction& inst);
-void parseByte4(uint8_t byte4, MovInstruction& inst);
+void parseByte1(uint8_t byte1, ParsedInstruction& inst);
+void parseByte2(uint8_t byte2, ParsedInstruction& inst);
+void parseByte3(uint8_t byte3, ParsedInstruction& inst);
+void parseByte4(uint8_t byte4, ParsedInstruction& inst);
+void parseByte5(uint8_t byte4, ParsedInstruction& inst);
+void parseByte6(uint8_t byte4, ParsedInstruction& inst);
 
 // Tests
 void testParseByte1();
 
 // Parsing helpers
 uint8_t getOpCode(uint8_t byte1);
-uint8_t getDisplacementBytesCount(const MovInstruction& mov);
+uint8_t getMode(const ParsedInstruction& inst);
+bool isDirectAddressingMode(const ParsedInstruction& inst);
+uint8_t getDisplacementBytesCount(const ParsedInstruction& inst);
 
 // Stringification helpers
 std::string getOpCodeString(uint8_t opCode);
 std::string getRegisterString(uint8_t reg, bool wide);
+std::string getMemString(uint16_t displacement);
 std::string getBaseRmValue(uint8_t rm);
 std::string get8086IntegerAsString(int value, bool useWideRegs);
-std::string getRmString(MovInstruction mov);
-std::string instructionToString(const MovInstruction& inst);
+std::string getInferredSize8086IntegerAsString(int value);
+std::string getRmString(const ParsedInstruction& inst);
+std::string instructionToString(const ParsedInstruction& inst);

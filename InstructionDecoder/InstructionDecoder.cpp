@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void parseByte1(uint8_t byte1, MovInstruction& inst) {
+void parseByte1(uint8_t byte1, ParsedInstruction& inst) {
     inst.opCode = getOpCode(byte1);
     switch (inst.opCode) {
     case OPCODE_MOV_RM_TO_RM:
@@ -20,14 +20,31 @@ void parseByte1(uint8_t byte1, MovInstruction& inst) {
         inst.regShifted = inst.reg;
         inst.useWideRegs = byte1 & OPPARAM_BYTE1_W2;
         inst.regIsDestination = true;
-        inst.immediateValueBytesCount = inst.useWideRegs ? DISP16_BASE_SIZE : DISP8_BASE_SIZE;
+        inst.immediateValueBytesCount = inst.useWideRegs ? DATA16_BASE_SIZE : DATA8_BASE_SIZE;
         inst.bytesCount = MOV_IMM_TO_REG_BASE_SIZE + inst.immediateValueBytesCount;
+        break;
+    }
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        inst.useWideRegs = byte1 & OPPARAM_BYTE1_W;
+        inst.immediateValueBytesCount = inst.useWideRegs ? DATA16_BASE_SIZE : DATA8_BASE_SIZE;
+        inst.bytesCount = MOV_IMM_TO_RM_BASE_SIZE + inst.immediateValueBytesCount;
+        break;
+    }
+    case OPCODE_MOV_ACC_TO_MEM:
+    {
+        // TODO!
+        break;
+    }
+    case OPCODE_MOV_MEM_TO_ACC:
+    {
+        // TODO!
         break;
     }
     }
 }
 
-void parseByte2(uint8_t byte2, MovInstruction& inst) {
+void parseByte2(uint8_t byte2, ParsedInstruction& inst) {
     switch (inst.opCode) {
     case OPCODE_MOV_RM_TO_RM:
     {
@@ -57,11 +74,11 @@ void parseByte2(uint8_t byte2, MovInstruction& inst) {
     }
 }
 
-void parseByte3(uint8_t byte3, MovInstruction& inst) {
+void parseByte3(uint8_t byte3, ParsedInstruction& inst) {
     switch (inst.opCode) {
     case OPCODE_MOV_RM_TO_RM:
     {
-        if (inst.displacementBytesCount >= DISP8_BASE_SIZE) {
+        if (inst.displacementBytesCount >= DATA8_BASE_SIZE) {
             inst.displacementValue = byte3;
         }
         break;
@@ -71,15 +88,85 @@ void parseByte3(uint8_t byte3, MovInstruction& inst) {
         inst.immediateValue += (byte3 << SHIFT_1BYTE);
         break;
     }
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        if (inst.displacementBytesCount >= DATA8_BASE_SIZE) {
+            // 1x displacement
+            inst.displacementValue = byte3;
+        }
+        else {
+            // 0x displacement
+            inst.immediateValue = byte3;
+        }
+        break;
+    }
     }
 }
 
-void parseByte4(uint8_t byte4, MovInstruction& inst) {
+void parseByte4(uint8_t byte4, ParsedInstruction& inst) {
     switch (inst.opCode) {
     case OPCODE_MOV_RM_TO_RM:
     {
-        if (inst.displacementBytesCount >= DISP16_BASE_SIZE) {
+        if (inst.displacementBytesCount >= DATA16_BASE_SIZE) {
             inst.displacementValue += byte4 << SHIFT_1BYTE;
+        }
+        break;
+    }
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        if (inst.displacementBytesCount >= DATA16_BASE_SIZE) {
+            // 2x displacement
+            inst.displacementValue += byte4 << SHIFT_1BYTE;
+        }
+        else if (inst.displacementBytesCount >= DATA8_BASE_SIZE) {
+            // 1x displacement
+            // 1x immediate
+            inst.immediateValue = byte4;
+        }
+        else {
+            // 0x displacement
+            if (inst.immediateValueBytesCount >= DATA16_BASE_SIZE) {
+                // 2x immediate
+                inst.immediateValue += byte4 << SHIFT_1BYTE;
+            }
+        }
+        break;
+    }
+    }
+}
+
+void parseByte5(uint8_t byte5, ParsedInstruction& inst) {
+    switch (inst.opCode) {
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        if (inst.displacementBytesCount >= DATA16_BASE_SIZE) {
+            // 2x displacement
+            if (inst.immediateValueBytesCount >= DATA8_BASE_SIZE) {
+                // 1x immediate
+                inst.immediateValue = byte5;
+            }
+        }
+        else if (inst.displacementBytesCount >= DATA8_BASE_SIZE) {
+            // 1x displacement
+            if (inst.immediateValueBytesCount >= DATA16_BASE_SIZE) {
+                // 2x immediate
+                inst.immediateValue += byte5 << SHIFT_1BYTE;
+            }
+        }
+        break;
+    }
+    }
+}
+
+void parseByte6(uint8_t byte6, ParsedInstruction& inst) {
+    switch (inst.opCode) {
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        if (inst.displacementBytesCount >= DATA16_BASE_SIZE) {
+            if (inst.immediateValueBytesCount >= DATA16_BASE_SIZE) {
+                // 2x displacement, 2x immediate
+                inst.immediateValue += byte6 << SHIFT_1BYTE;
+            }
         }
         break;
     }
@@ -90,23 +177,23 @@ void testParseByte1() {
     cout << "Testing parseByte1..." << endl;
 
     {
-        cout << "parseByte1(OPCODE_MOV_IMM_TO_REG + OPPARAM_BYTE1_W2 + REGISTER_CX, mov)" << endl;
-        MovInstruction mov = { 0 };
-        parseByte1(OPCODE_MOV_IMM_TO_REG + OPPARAM_BYTE1_W2 + REGISTER_CX, mov);
-        if (mov.opCode != OPCODE_MOV_IMM_TO_REG) {
-            cout << "\tInvalid opcode: " << int(mov.opCode) << ")" << endl;
+        cout << "parseByte1(OPCODE_MOV_IMM_TO_REG + OPPARAM_BYTE1_W2 + REGISTER_CX, inst)" << endl;
+        ParsedInstruction inst = { 0 };
+        parseByte1(OPCODE_MOV_IMM_TO_REG + OPPARAM_BYTE1_W2 + REGISTER_CX, inst);
+        if (inst.opCode != OPCODE_MOV_IMM_TO_REG) {
+            cout << "\tInvalid opcode: " << int(inst.opCode) << ")" << endl;
         }
-        if (mov.bytesCount != 3) {
-            cout << "\tInvalid length: " << int(mov.bytesCount) << endl;
+        if (inst.bytesCount != 3) {
+            cout << "\tInvalid length: " << int(inst.bytesCount) << endl;
         }
-        if (!mov.useWideRegs) {
-            cout << "\tInvalid w: " << int(mov.useWideRegs) << endl;
+        if (!inst.useWideRegs) {
+            cout << "\tInvalid w: " << int(inst.useWideRegs) << endl;
         }
-        if (mov.reg != REGISTER_CX) {
-            cout << "\tInvalid register: " << getRegisterString(mov.reg, mov.useWideRegs) << endl;
+        if (inst.reg != REGISTER_CX) {
+            cout << "\tInvalid register: " << getRegisterString(inst.reg, inst.useWideRegs) << endl;
         }
-        if (mov.regShifted != REGISTER_CX) {
-            cout << "\tInvalid register: " << getRegisterString(mov.regShifted, mov.useWideRegs) << endl;
+        if (inst.regShifted != REGISTER_CX) {
+            cout << "\tInvalid register: " << getRegisterString(inst.regShifted, inst.useWideRegs) << endl;
         }
     }
 
@@ -118,6 +205,15 @@ uint8_t getOpCode(uint8_t byte1) {
     if ((byte1 & OPCODE_MOV_IMM_TO_REG) == OPCODE_MOV_IMM_TO_REG) {
         return OPCODE_MOV_IMM_TO_REG;
     }
+    else if ((byte1 & OPCODE_MOV_IMM_TO_RM) == OPCODE_MOV_IMM_TO_RM) {
+        return OPCODE_MOV_IMM_TO_RM;
+    }
+    else if ((byte1 & OPCODE_MOV_ACC_TO_MEM) == OPCODE_MOV_ACC_TO_MEM) {
+        return OPCODE_MOV_ACC_TO_MEM;
+    }
+    else if ((byte1 & OPCODE_MOV_MEM_TO_ACC) == OPCODE_MOV_MEM_TO_ACC) {
+        return OPCODE_MOV_MEM_TO_ACC;
+    }
     else if ((byte1 & OPCODE_MOV_RM_TO_RM) == OPCODE_MOV_RM_TO_RM) {
         return OPCODE_MOV_RM_TO_RM;
     }
@@ -126,21 +222,27 @@ uint8_t getOpCode(uint8_t byte1) {
     }
 }
 
-uint8_t getDisplacementBytesCount(const MovInstruction& mov) {
-    switch (mov.mode >> OPPARAM_BYTE2_MOD_OFFSET) {
-    case MOV_MOD_DISPLACEMENT_NONE:
-    {
-        // special case: mod = 00 && rm = bp means direct address
-        // which is 16 bits on a 8086
-        return (mov.regOrMemShifted == RM_REGISTER_BP) ? DISP16_BASE_SIZE : 0;
+uint8_t getMode(const ParsedInstruction& mov) {
+    return mov.mode >> OPPARAM_BYTE2_MOD_OFFSET;
+}
+
+bool isDirectAddressingMode(const ParsedInstruction& mov) {
+    return getMode(mov) == OPPARAM_MOD_DISPLACEMENT_NONE && mov.regOrMemShifted == RM_REGISTER_BP;
+}
+
+uint8_t getDisplacementBytesCount(const ParsedInstruction& mov) {
+    if (isDirectAddressingMode(mov)) {
+        return DATA16_BASE_SIZE;
     }
-    case MOV_MOD_DISPLACEMENT_8BIT:
+
+    switch (getMode(mov)) {
+    case OPPARAM_MOD_DISPLACEMENT_8BIT:
     {
-        return DISP8_BASE_SIZE;
+        return DATA8_BASE_SIZE;
     }
-    case MOV_MOD_DISPLACEMENT_16BIT:
+    case OPPARAM_MOD_DISPLACEMENT_16BIT:
     {
-        return DISP16_BASE_SIZE;
+        return DATA16_BASE_SIZE;
     }
     default:
     {
@@ -154,6 +256,8 @@ string getOpCodeString(uint8_t opCode) {
     case OPCODE_MOV_RM_TO_RM:
     case OPCODE_MOV_IMM_TO_REG:
     case OPCODE_MOV_IMM_TO_RM:
+    case OPCODE_MOV_MEM_TO_ACC:
+    case OPCODE_MOV_ACC_TO_MEM:
         return "mov";
     default: return "undefined_opcode";
     }
@@ -202,25 +306,44 @@ string getBaseRmValue(uint8_t rm) {
     }
 }
 
-string get8086IntegerAsString(int value, bool useWideRegs) {
-    return to_string(useWideRegs ? int(int16_t(value)) : int(int8_t(value)));
+string get8086IntegerAsString(int value, bool wide) {
+    return to_string(wide ? int16_t(value) : int(int8_t(value)));
 }
 
-string getRmString(MovInstruction mov) {
+string getInferredSize8086IntegerAsString(int value) {
+    if (value > UINT8_MAX) {
+        return "word " + to_string(uint16_t(value));
+    }
+    else {
+        return "byte " + to_string(int(uint8_t(value)));
+    }
+}
+
+string getRmString(const ParsedInstruction& mov) {
+    if (isDirectAddressingMode(mov)) {
+        return getMemString(mov.displacementValue);
+    }
+
     string result;
     switch (mov.mode >> OPPARAM_BYTE2_MOD_OFFSET) {
-    case MOV_MOD_DISPLACEMENT_NONE:
-    case MOV_MOD_DISPLACEMENT_8BIT:
-    case MOV_MOD_DISPLACEMENT_16BIT:
+    case OPPARAM_MOD_DISPLACEMENT_NONE:
+    case OPPARAM_MOD_DISPLACEMENT_8BIT:
+    case OPPARAM_MOD_DISPLACEMENT_16BIT:
     {
         result = "[" + getBaseRmValue(mov.regOrMemShifted);
         if (mov.displacementValue != 0) {
-            result += " + " + get8086IntegerAsString(mov.displacementValue, mov.displacementBytesCount >= DISP16_BASE_SIZE);
+            const string intAsString = get8086IntegerAsString(mov.displacementValue, mov.displacementBytesCount >= DATA16_BASE_SIZE);
+            if (intAsString[0] == '-') {
+                result += " - " + intAsString.substr(1);
+            }
+            else {
+                result += " + " + intAsString;
+            }
         }
         result += "]";
         break;
     }
-    case MOV_MOD_REGISTER:
+    case OPPARAM_MOD_REGISTER:
     {
         result = getRegisterString(mov.regOrMemShifted, mov.useWideRegs);
         break;
@@ -234,7 +357,11 @@ string getRmString(MovInstruction mov) {
     return result;
 }
 
-string instructionToString(const MovInstruction& inst) {
+string getMemString(uint16_t displacement) {
+    return "[" + to_string(displacement) + "]";
+}
+
+string instructionToString(const ParsedInstruction& inst) {
     string result = getOpCodeString(inst.opCode);
     result += " ";
 
@@ -258,6 +385,13 @@ string instructionToString(const MovInstruction& inst) {
         result += getRegisterString(inst.reg, inst.useWideRegs);
         result += ", ";
         result += get8086IntegerAsString(inst.immediateValue, inst.immediateValueBytesCount > 1);
+        break;
+    }
+    case OPCODE_MOV_IMM_TO_RM:
+    {
+        result += getRmString(inst);
+        result += ", ";
+        result += getInferredSize8086IntegerAsString(inst.immediateValue);
         break;
     }
     }
