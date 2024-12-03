@@ -33,12 +33,20 @@ void parseByte1(uint8_t byte1, ParsedInstruction& inst) {
     }
     case OPCODE_MOV_ACC_TO_MEM:
     {
-        // TODO!
+        inst.useWideRegs = byte1 & OPPARAM_BYTE1_W;
+        inst.bytesCount = MOV_ACC_TO_MEM_SIZE;
+        inst.reg = REGISTER_AX;
+        inst.regShifted = REGISTER_AX;
+        inst.regIsDestination = 0;
         break;
     }
     case OPCODE_MOV_MEM_TO_ACC:
     {
-        // TODO!
+        inst.useWideRegs = byte1 & OPPARAM_BYTE1_W;
+        inst.bytesCount = MOV_MEM_TO_ACC_SIZE;
+        inst.reg = REGISTER_AX;
+        inst.regShifted = REGISTER_AX;
+        inst.regIsDestination = OPPARAM_BYTE1_D;
         break;
     }
     }
@@ -71,6 +79,18 @@ void parseByte2(uint8_t byte2, ParsedInstruction& inst) {
         inst.bytesCount += inst.displacementBytesCount;
         break;
     }
+    case OPCODE_MOV_ACC_TO_MEM:
+    {
+        inst.displacementBytesCount = 2;
+        inst.displacementValue = byte2;
+        break;
+    }
+    case OPCODE_MOV_MEM_TO_ACC:
+    {
+        inst.displacementBytesCount = 2;
+        inst.displacementValue = byte2;
+        break;
+    }
     }
 }
 
@@ -98,6 +118,16 @@ void parseByte3(uint8_t byte3, ParsedInstruction& inst) {
             // 0x displacement
             inst.immediateValue = byte3;
         }
+        break;
+    }
+    case OPCODE_MOV_ACC_TO_MEM:
+    {
+        inst.displacementValue += byte3 << SHIFT_1BYTE;
+        break;
+    }
+    case OPCODE_MOV_MEM_TO_ACC:
+    {
+        inst.displacementValue += byte3 << SHIFT_1BYTE;
         break;
     }
     }
@@ -392,6 +422,20 @@ string instructionToString(const ParsedInstruction& inst) {
         result += getRmString(inst);
         result += ", ";
         result += getInferredSize8086IntegerAsString(inst.immediateValue);
+        break;
+    }
+    case OPCODE_MOV_MEM_TO_ACC:
+    {
+        result += getRegisterString(inst.regShifted, inst.useWideRegs);
+        result += ", ";
+        result += getMemString(inst.displacementValue);
+        break;
+    }
+    case OPCODE_MOV_ACC_TO_MEM:
+    {
+        result += getMemString(inst.displacementValue);
+        result += ", ";
+        result += getRegisterString(inst.regShifted, inst.useWideRegs);
         break;
     }
     }
